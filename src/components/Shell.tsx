@@ -28,6 +28,10 @@ export function Shell({ screen, children }: { screen: Screen; children: ReactNod
           <TimeSavedWidget screen={screen} signed={signed} />
           {screen === 'intake' && <Legend />}
           <div className="side-foot">
+            <button type="button" className="link" onClick={() => dispatch({ type: 'intro', open: true })}>
+              על הדמו
+            </button>
+            <span className="muted" aria-hidden="true">·</span>
             <button type="button" className="link" onClick={() => { dispatch({ type: 'reset' }); window.scrollTo(0, 0); }}>
               Reset demo
             </button>

@@ -5,6 +5,7 @@ import Intake from './screens/Intake';
 import CaseFile from './screens/CaseFile';
 import Interview from './screens/Interview';
 import Decision from './screens/Decision';
+import { IntroDialog } from './components/IntroDialog';
 
 function ScrollTop() {
   const { pathname } = useLocation();
@@ -16,6 +17,7 @@ export default function App() {
   return (
     <>
       <ScrollTop />
+      <IntroDialog />
       <Routes>
         <Route path="/intake" element={<Shell screen="intake"><Intake /></Shell>} />
         <Route path="/file" element={<Shell screen="file"><CaseFile /></Shell>} />

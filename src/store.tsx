@@ -31,6 +31,8 @@ export interface DemoState {
     revealed: number;
   };
   decision: { choice: Choice; reason: string; confirmed: boolean; signed: boolean };
+  /** the "what is this demo" dialog shown on entrance */
+  introOpen: boolean;
 }
 
 export const INTERVIEW_START = 23 * 60 + 41;
@@ -49,18 +51,31 @@ export const initialState: DemoState = {
     paused: false, clock: INTERVIEW_START, revealed: 0,
   },
   decision: { choice: '', reason: '', confirmed: false, signed: false },
+  introOpen: true,
 };
 
-type Section = keyof DemoState;
+const INTRO_KEY = 'ca_intro_seen';
+function introSeen() {
+  try { return sessionStorage.getItem(INTRO_KEY) === '1'; } catch { return false; }
+}
+function markIntroSeen() {
+  try { sessionStorage.setItem(INTRO_KEY, '1'); } catch { /* storage unavailable */ }
+}
+
+type Section = 'intake' | 'file' | 'interview' | 'decision';
 export type Action =
   | { [K in Section]: { type: 'patch'; section: K; patch: Partial<DemoState[K]> } }[Section]
   | { type: 'reset' }
+  | { type: 'intro'; open: boolean }
   | { type: 'tick' };
 
 function reducer(state: DemoState, action: Action): DemoState {
   switch (action.type) {
     case 'reset':
-      return initialState;
+      return { ...initialState, introOpen: false };
+    case 'intro':
+      if (!action.open) markIntroSeen();
+      return { ...state, introOpen: action.open };
     case 'tick':
       return { ...state, interview: { ...state.interview, clock: state.interview.clock + 1 } };
     case 'patch':
@@ -71,7 +86,7 @@ function reducer(state: DemoState, action: Action): DemoState {
 const Ctx = createContext<{ state: DemoState; dispatch: Dispatch<Action> } | null>(null);
 
 export function DemoProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, initialState);
+  const [state, dispatch] = useReducer(reducer, initialState, (s) => ({ ...s, introOpen: !introSeen() }));
   const value = useMemo(() => ({ state, dispatch }), [state]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
