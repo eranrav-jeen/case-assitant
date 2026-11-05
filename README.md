@@ -22,7 +22,7 @@ First time, from this folder on the server:
 ./deploy/setup-server.sh demo.example.com          # or no argument for any host ("_")
 ```
 
-Flags: `--no-auth` to skip basic auth (default: on, user `demo`, you're prompted
+Flags: `--port=8080` to listen on another port (when port 80 already serves another site), `--no-auth` to skip basic auth (default: on, user `demo`, you're prompted
 for the password), `--https` to run certbot (needs DNS pointing at the server).
 
 Redeploy after changes: `./deploy.sh`. Files are served from
