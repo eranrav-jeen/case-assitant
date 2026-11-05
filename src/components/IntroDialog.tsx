@@ -1,28 +1,44 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from './Icon';
-import { AiTag } from './AiTag';
-import { HumanTag } from './HumanTag';
 import { useDemo } from '../store';
 
-const PAINS = [
-  { t: 'מסמכים מכמה מדינות ושפות', d: 'דרכון, תעודות לידה ונישואין, אפוסטילים ותרגומים נוטריוניים, שמושווים ידנית שדה אחר שדה.' },
-  { t: 'הצלבה מול מאגרים', d: 'מרשם האוכלוסין, מעברי גבול, בקשות קודמות ורישום פלילי, כל אחד במערכת נפרדת.' },
-  { t: 'ראיון ארוך דרך מתורגמן', d: 'שני בני הזוג מרואיינים בנפרד. הרישום ידני, וסתירות מזוהות מהזיכרון.' },
-  { t: 'החלטה ומכתב מאפס', d: 'ריכוז הממצאים, ניסוח הנימוק וכתיבת מכתב ההחלטה, לכל תיק מחדש.' },
-];
+// Per-file handling time, from the demo's own model (see the time-per-stage chart on the decision screen).
+const MANUAL_H = 15;
+const AI_H = 6;
+// A full-time caseworker's productive hours per year, used for the FTE equivalent.
+const FTE_HOURS = 1800;
 
-const FLOW = [
-  { t: 'אימות מסמכים', d: 'OCR, תרגום והצלבה. כל אי-התאמה מסומנת עם הסבר.' },
-  { t: 'פתיחת תיק', d: 'סיכום, עדכון רשומות מקושרות ומיקודים לראיון.' },
-  { t: 'ראיון', d: 'תמלול ותרגום חי, שאלות המשך וגלאי סתירות.' },
-  { t: 'הכרעה', d: 'טיוטת המלצה ומכתב. ההחלטה והחתימה אנושיות.' },
-];
+const num = new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 });
+const money = (v: number) =>
+  v >= 1_000_000 ? `${(v / 1_000_000).toLocaleString('he-IL', { maximumFractionDigits: 1 })} מיליון ₪` : `${num.format(v)} ₪`;
+
+function Slider({ id, label, value, min, max, step, onChange, format }: {
+  id: string; label: string; value: number; min: number; max: number; step: number;
+  onChange: (v: number) => void; format: (v: number) => string;
+}) {
+  return (
+    <div className="roi-in">
+      <div className="roi-in-h">
+        <label htmlFor={id}>{label}</label>
+        <output htmlFor={id} className="mono">{format(value)}</output>
+      </div>
+      <input
+        id={id} type="range" min={min} max={max} step={step} value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        style={{ ['--p' as string]: `${((value - min) / (max - min)) * 100}%` }}
+      />
+    </div>
+  );
+}
 
 export function IntroDialog() {
   const { state, dispatch } = useDemo();
   const ref = useRef<HTMLDialogElement>(null);
   const cta = useRef<HTMLButtonElement>(null);
   const open = state.introOpen;
+
+  const [requests, setRequests] = useState(12000);
+  const [rate, setRate] = useState(150);
 
   useEffect(() => {
     const d = ref.current;
@@ -32,6 +48,10 @@ export function IntroDialog() {
   }, [open]);
 
   const close = () => dispatch({ type: 'intro', open: false });
+
+  const hoursSaved = requests * (MANUAL_H - AI_H);
+  const fte = hoursSaved / FTE_HOURS;
+  const savings = hoursSaved * rate;
 
   return (
     <dialog
@@ -43,41 +63,57 @@ export function IntroDialog() {
         <span className="logo-mark" aria-hidden="true"><Icon name="star" size={22} style={{ color: '#fff' }} /></span>
         <div>
           <div className="eb" dir="ltr" style={{ textAlign: 'right' }}>Jeen.ai Case Assistant · demo</div>
-          <h2 id="intro-title">בקשת מעמד לבת זוג זרה: מ-15 שעות טיפול ל-6</h2>
-          <p id="intro-lead">עמדת עבודה לרכזת תיקים, שבה ה-AI מכין את העבודה והאדם מקבל את ההחלטות.</p>
+          <h2 id="intro-title">15 שעות לתיק. אפשר 6.</h2>
+          <p id="intro-lead">
+            בקשת מעמד לבת זוג זרה היא עשרות מסמכים בכמה שפות, הצלבה ידנית מול מאגרים, ראיון דרך מתורגמן ומכתב החלטה מאפס. ה-AI מכין את כל זה. הרכזת מחליטה.
+          </p>
         </div>
         <button type="button" className="intro-x" aria-label="סגירה" onClick={close}><Icon name="x" size={20} /></button>
       </div>
 
       <div className="intro-body">
-        <section>
-          <h3>הבעיה</h3>
-          <p style={{ fontSize: 14, color: 'var(--gray-700)', marginBottom: 10 }}>
-            אזרח ישראלי שמבקש מעמד לבת זוגו הזרה פותח תיק שהטיפול בו ידני כמעט לגמרי. רכזת אחת עוברת על עשרות עמודים, מצליבה מאגרים, מראיינת ומנסחת החלטה. התוצאה: כ-15 שעות עבודה לתיק, תורים ארוכים, ושגיאות שמתגלות מאוחר.
-          </p>
-          <div className="pains">
-            {PAINS.map((p) => <div key={p.t} className="pain"><b>{p.t}</b>{p.d}</div>)}
-          </div>
-        </section>
-
-        <section>
-          <h3>מה רואים בדמו</h3>
-          <ol className="flow">
-            {FLOW.map((f) => <li key={f.t}><b>{f.t}</b>{f.d}</li>)}
-          </ol>
-        </section>
-
-        <div className="principle">
-          <span className="row"><AiTag /> מציע, עם רמת ביטחון והסבר</span>
-          <span className="row"><HumanTag text="הוכרע ע״י רכזת" /> מחליט, ונרשם ביומן הביקורת</span>
-          <span className="kpi"><s>15 ש׳</s><span aria-hidden="true">←</span><span className="to">6 ש׳ לתיק</span></span>
+        <div className="race" aria-label="זמן טיפול לתיק: 15 שעות ידני, 6 שעות עם Jeen.ai">
+          <div className="race-row"><span className="l">היום</span><span className="race-track"><span className="man" style={{ width: '100%' }} /></span><span className="v">15 ש׳</span></div>
+          <div className="race-row"><span className="l">עם Jeen.ai</span><span className="race-track"><span className="ai" style={{ width: `${(AI_H / MANUAL_H) * 100}%` }} /></span><span className="v ai">6 ש׳</span></div>
         </div>
+
+        <section className="roi" aria-labelledby="roi-h">
+          <div className="roi-head">
+            <h3 id="roi-h"><Icon name="sparkle" size={14} filled className="ico-ai" />מה זה שווה בשנה?</h3>
+            <span className="small muted">הזיזו את ההנחות</span>
+          </div>
+          <div className="roi-inputs">
+            <Slider id="roi-req" label="בקשות בשנה" value={requests} min={2000} max={30000} step={1000} onChange={setRequests} format={num.format} />
+            <Slider id="roi-rate" label="עלות שעת רכזת (כולל תקורה)" value={rate} min={80} max={300} step={10} onChange={setRate} format={(v) => `${v} ₪`} />
+          </div>
+          <div className="kpis" aria-live="polite">
+            <div className="kpi-tile hero">
+              <span className="k">{money(savings)}</span>
+              <span className="d">חיסכון שנתי</span>
+            </div>
+            <div className="kpi-tile">
+              <span className="k">{num.format(hoursSaved)}</span>
+              <span className="d">שעות עבודה מתפנות</span>
+            </div>
+            <div className="kpi-tile">
+              <span className="k">{num.format(Math.round(fte))}</span>
+              <span className="d">משרות מלאות</span>
+            </div>
+            <div className="kpi-tile">
+              <span className="k"><span dir="ltr">×2.5</span></span>
+              <span className="d">תיקים לכל רכזת</span>
+            </div>
+          </div>
+          <p className="roi-note">
+            9 שעות נחסכות לתיק · משרה מלאה = {num.format(FTE_HOURS)} שעות בשנה. ההנחות להמחשה בלבד.
+          </p>
+        </section>
       </div>
 
       <div className="intro-f">
-        <small>כל השמות, המספרים והמסמכים בדמו בדויים. אפשר לפתוח הסבר זה שוב מ״על הדמו״ בתחתית סרגל הצד.</small>
+        <small>כל השמות והמסמכים בדמו בדויים · ״על הדמו״ בסרגל הצד פותח חלון זה שוב</small>
         <button type="button" className="btn btn-primary btn-lg" onClick={close} ref={cta}>
-          התחל את הדמו <Icon name="arrow" size={18} />
+          בואו נראה איך <Icon name="arrow" size={18} />
         </button>
       </div>
     </dialog>
